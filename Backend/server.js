@@ -14,10 +14,19 @@ dotenv.config();
 
 const app = express();
 app.use(express.json());
-app.use(cors());
+
+// -------------------- CORS Setup --------------------
+const FRONTEND_URL = "https://incandescent-kitten-729b4c.netlify.app";
+
+app.use(cors({
+  origin: FRONTEND_URL,
+  methods: ["GET", "POST", "PUT", "DELETE"],
+  credentials: true
+}));
+
 app.use("/uploads", express.static("uploads"));
 
-// MongoDB connection
+// -------------------- MongoDB Connection --------------------
 const MONGO_URI = process.env.MONGO_URI;
 console.log("🔍 Connecting to MongoDB...");
 mongoose
@@ -25,7 +34,7 @@ mongoose
   .then(() => console.log("✅ MongoDB connected"))
   .catch((err) => console.error("MongoDB connection error:", err));
 
-// API ROUTES
+// -------------------- API Routes --------------------
 app.use("/api/user", require("./Routes/UserRoutes"));
 app.use("/api/account", require("./Routes/AccountRoutes"));
 app.use("/api/student", require("./Routes/StudentRoutes"));
@@ -35,10 +44,14 @@ app.use("/api/admin", require("./Routes/AdminRoutes"));
 app.use("/api/search", require("./Routes/SearchRoutes"));
 app.use("/api/auth", require("./Routes/ForgotRoutes"));
 
-// SOCKET.IO
+// -------------------- Socket.IO --------------------
 const server = http.createServer(app);
 const io = new Server(server, {
-  cors: { origin: "*", methods: ["GET", "POST", "PUT", "DELETE"] },
+  cors: {
+    origin: FRONTEND_URL,
+    methods: ["GET", "POST", "PUT", "DELETE"],
+    credentials: true
+  },
 });
 
 const onlineUsers = new Map();
@@ -96,13 +109,17 @@ io.on("connection", (socket) => {
   });
 });
 
-app.use(express.static(path.join(__dirname, 'client', 'build')));
+// -------------------- Serve React Build --------------------
+const buildPath = path.join(__dirname, "client", "build");
+app.use(express.static(buildPath));
 
-// Handle React routing, return index.html for all non-API requests
-app.get('/', (req, res) => {
-  res.sendFile(path.resolve(__dirname, 'client', 'build', 'index.html'));
+// Catch all non-API routes and return React index.html
+app.get("*", (req, res) => {
+  if (!req.path.startsWith("/api")) {
+    res.sendFile(path.join(buildPath, "index.html"));
+  }
 });
 
-// Start server
+// -------------------- Start Server --------------------
 const PORT = process.env.PORT || 5000;
 server.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
