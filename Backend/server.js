@@ -96,14 +96,12 @@ io.on("connection", (socket) => {
   });
 });
 
-// Serve React build
-const buildPath = path.join(__dirname, "client", "build");
-app.use(express.static(buildPath));
+app.use(express.static(path.join(__dirname, 'client', 'build')));
 
-app.get("*", (req, res) => {
-  res.sendFile(path.join(buildPath, "index.html"));
+// Handle React routing, return index.html for all non-API requests
+app.get('/', (req, res) => {
+  res.sendFile(path.resolve(__dirname, 'client', 'build', 'index.html'));
 });
-
 
 // Start server
 const PORT = process.env.PORT || 5000;
