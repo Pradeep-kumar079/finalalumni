@@ -1,3 +1,4 @@
+// server.js
 const express = require("express");
 const http = require("http");
 const { Server } = require("socket.io");
@@ -13,13 +14,11 @@ const UserModel = require("./Models/UserModel");
 dotenv.config();
 
 const app = express();
-
-// Middleware
 app.use(express.json());
-app.use(cors({ origin: process.env.FRONTEND_URL }));
+app.use(cors());
 app.use("/uploads", express.static("uploads"));
 
-// MongoDB Connection
+// MongoDB connection
 const MONGO_URI = process.env.MONGO_URI;
 console.log("🔍 Connecting to MongoDB...");
 mongoose
@@ -40,10 +39,7 @@ app.use("/api/auth", require("./Routes/ForgotRoutes"));
 // SOCKET.IO
 const server = http.createServer(app);
 const io = new Server(server, {
-  cors: {
-    origin: process.env.FRONTEND_URL,
-    methods: ["GET", "POST", "PUT", "DELETE"],
-  },
+  cors: { origin: "*", methods: ["GET", "POST", "PUT", "DELETE"] },
 });
 
 const onlineUsers = new Map();
@@ -51,8 +47,7 @@ const onlineUsers = new Map();
 io.on("connection", (socket) => {
   console.log("⚡ User connected:", socket.id);
 
-  // User comes online
-  socket.on("userOnline", async (userId) => {
+  socket.on("user-online", async (userId) => {
     if (!userId) return;
     onlineUsers.set(userId, socket.id);
     console.log(`🟢 ${userId} is online`);
@@ -64,7 +59,6 @@ io.on("connection", (socket) => {
     }
   });
 
-  // Sending message
   socket.on("send-message", async ({ fromUserId, toUserId, message }) => {
     try {
       const newChat = await ChatModel.create({
@@ -72,19 +66,16 @@ io.on("connection", (socket) => {
         receiver: toUserId,
         message,
       });
-
       const receiverSocket = onlineUsers.get(toUserId);
       if (receiverSocket) {
         io.to(receiverSocket).emit("receive-message", { chat: newChat });
       }
-
       socket.emit("message-sent", { chat: newChat });
     } catch (err) {
       console.error("Message error:", err);
     }
   });
 
-  // User disconnects
   socket.on("disconnect", async () => {
     let disconnectedUserId = null;
     for (let [userId, sockId] of onlineUsers.entries()) {
@@ -106,12 +97,13 @@ io.on("connection", (socket) => {
   });
 });
 
-// ✅ Serve React frontend for production
+// ✅ Serve frontend for React Router (catch-all)
 app.use(express.static(path.join(__dirname, "client", "build")));
-app.get("/*", (req, res) => {
-  res.sendFile(path.resolve(__dirname, "client", "build", "index.html"));
+
+app.get("*", (req, res) => {
+  res.sendFile(path.join(__dirname, "client", "build", "index.html"));
 });
 
-// PORT
+// Start server
 const PORT = process.env.PORT || 5000;
 server.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
