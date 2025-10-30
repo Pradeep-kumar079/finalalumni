@@ -96,12 +96,11 @@ io.on("connection", (socket) => {
   });
 });
 
-// ✅ Serve React frontend
 app.use(express.static(path.join(__dirname, "client", "build")));
 
-// ✅ Catch-all for React Router (fixed)
-app.get("/*", (req, res) => {
-  res.sendFile(path.resolve(__dirname, "client", "build", "index.html"));
+// Catch-all route for React Router
+app.get("*", (req, res) => {
+  res.sendFile(path.join(__dirname, "client", "build", "index.html"));
 });
 
 const PORT = process.env.PORT || 5000;
