@@ -16,18 +16,21 @@ app.use(express.json());
 
 const FRONTEND_URL = "https://incandescent-kitten-729b4c.netlify.app";
 
-app.use(cors({
-  origin: FRONTEND_URL,
-  methods: ["GET", "POST", "PUT", "DELETE"],
-  credentials: true
-}));
+app.use(
+  cors({
+    origin: FRONTEND_URL,
+    methods: ["GET", "POST", "PUT", "DELETE"],
+    credentials: true,
+  })
+);
 
 app.use("/uploads", express.static("uploads"));
 
 // MongoDB
-mongoose.connect(process.env.MONGO_URI, { useNewUrlParser: true, useUnifiedTopology: true })
+mongoose
+  .connect(process.env.MONGO_URI, { useNewUrlParser: true, useUnifiedTopology: true })
   .then(() => console.log("✅ MongoDB connected"))
-  .catch(err => console.error("MongoDB connection error:", err));
+  .catch((err) => console.error("MongoDB connection error:", err));
 
 // API Routes
 app.use("/api/user", require("./Routes/UserRoutes"));
@@ -39,14 +42,14 @@ const io = new Server(server, {
   cors: {
     origin: FRONTEND_URL,
     methods: ["GET", "POST"],
-    credentials: true
+    credentials: true,
   },
-  transports: ["websocket", "polling"]
+  transports: ["websocket", "polling"],
 });
 
 const onlineUsers = new Map();
 
-io.on("connection", socket => {
+io.on("connection", (socket) => {
   console.log("⚡ User connected:", socket.id);
 
   socket.on("user-online", async (userId) => {
@@ -78,8 +81,13 @@ io.on("connection", socket => {
 // Serve React
 const buildPath = path.join(__dirname, "client", "build");
 app.use(express.static(buildPath));
-app.get("*", (req, res) => {
-  if (!req.path.startsWith("/api")) res.sendFile(path.join(buildPath, "index.html"));
+
+// ✅ FIXED catch-all route for React
+app.get("/*", (req, res) => {
+  // Only serve React app if not API request
+  if (!req.path.startsWith("/api")) {
+    res.sendFile(path.join(buildPath, "index.html"));
+  }
 });
 
 server.listen(process.env.PORT || 5000, () => console.log("🚀 Server running"));
