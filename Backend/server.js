@@ -37,7 +37,7 @@ mongoose
 
 // API Routes
 app.use("/api/user", require("./Routes/UserRoutes"));
-// add other routes here, e.g., app.use("/api/chat", require("./Routes/ChatRoutes"));
+// Add other routes here, e.g., app.use("/api/chat", require("./Routes/ChatRoutes"));
 
 // Socket.IO setup
 const server = http.createServer(app);
@@ -47,11 +47,12 @@ const io = new Server(server, {
     methods: ["GET", "POST"],
     credentials: true,
   },
-  transports: ["websocket", "polling"],
 });
 
+// Map to track online users
 const onlineUsers = new Map();
 
+// Socket.IO connection
 io.on("connection", (socket) => {
   console.log("⚡ User connected:", socket.id);
 
@@ -65,17 +66,23 @@ io.on("connection", (socket) => {
 
   // Sending a message
   socket.on("send-message", async ({ fromUserId, toUserId, message }) => {
+    if (!fromUserId || !toUserId || !message) return;
+
     const newChat = await ChatModel.create({
       sender: fromUserId,
       receiver: toUserId,
       message,
     });
+
     const receiverSocket = onlineUsers.get(toUserId);
-    if (receiverSocket) io.to(receiverSocket).emit("receive-message", { chat: newChat });
+    if (receiverSocket) {
+      io.to(receiverSocket).emit("receive-message", { chat: newChat });
+    }
+
     socket.emit("message-sent", { chat: newChat });
   });
 
-  // User disconnect
+  // User disconnects
   socket.on("disconnect", async () => {
     for (let [userId, sockId] of onlineUsers.entries()) {
       if (sockId === socket.id) {
@@ -92,7 +99,7 @@ io.on("connection", (socket) => {
 const buildPath = path.join(__dirname, "client", "build");
 app.use(express.static(buildPath));
 
-// ✅ Catch all non-API requests and serve React
+// Catch all non-API requests and serve React
 app.use((req, res, next) => {
   if (!req.path.startsWith("/api")) {
     res.sendFile(path.join(buildPath, "index.html"));
