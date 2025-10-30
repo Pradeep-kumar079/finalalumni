@@ -4,16 +4,22 @@ const { Server } = require("socket.io");
 const mongoose = require("mongoose");
 const cors = require("cors");
 const dotenv = require("dotenv");
+const path = require("path");
+
+// Models
 const ChatModel = require("./Models/ChatModel");
 const UserModel = require("./Models/UserModel");
 
 dotenv.config();
 
 const app = express();
+
+// Middleware
 app.use(express.json());
 app.use(cors());
 app.use("/uploads", express.static("uploads"));
 
+// MongoDB Connection
 const MONGO_URI = process.env.MONGO_URI;
 console.log("🔍 Mongo URI:", MONGO_URI);
 
@@ -35,7 +41,10 @@ app.use("/api/auth", require("./Routes/ForgotRoutes"));
 // SOCKET.IO
 const server = http.createServer(app);
 const io = new Server(server, {
-  cors: { origin: "*", methods: ["GET", "POST", "PUT", "DELETE"] },
+  cors: {
+    origin: process.env.FRONTEND_URL || "*",
+    methods: ["GET", "POST", "PUT", "DELETE"],
+  },
 });
 
 const onlineUsers = new Map();
@@ -43,10 +52,12 @@ const onlineUsers = new Map();
 io.on("connection", (socket) => {
   console.log("⚡ User connected:", socket.id);
 
-  socket.on("user-online", async (userId) => {
+  // User comes online
+  socket.on("userOnline", async (userId) => {
     if (!userId) return;
     onlineUsers.set(userId, socket.id);
     console.log(`🟢 ${userId} is online`);
+
     try {
       await UserModel.findByIdAndUpdate(userId, { isOnline: true });
       io.emit("userStatusUpdate", { userId, isOnline: true });
@@ -55,6 +66,7 @@ io.on("connection", (socket) => {
     }
   });
 
+  // Sending message
   socket.on("send-message", async ({ fromUserId, toUserId, message }) => {
     try {
       const newChat = await ChatModel.create({
@@ -62,16 +74,19 @@ io.on("connection", (socket) => {
         receiver: toUserId,
         message,
       });
+
       const receiverSocket = onlineUsers.get(toUserId);
       if (receiverSocket) {
         io.to(receiverSocket).emit("receive-message", { chat: newChat });
       }
+
       socket.emit("message-sent", { chat: newChat });
     } catch (err) {
       console.error("Message error:", err);
     }
   });
 
+  // User disconnects
   socket.on("disconnect", async () => {
     let disconnectedUserId = null;
     for (let [userId, sockId] of onlineUsers.entries()) {
@@ -82,6 +97,7 @@ io.on("connection", (socket) => {
         break;
       }
     }
+
     if (disconnectedUserId) {
       try {
         await UserModel.findByIdAndUpdate(disconnectedUserId, { isOnline: false });
@@ -93,17 +109,13 @@ io.on("connection", (socket) => {
   });
 });
 
+// ✅ Serve React frontend for production
+app.use(express.static(path.join(__dirname, "client", "build")));
 
-// ✅ Serve frontend for all other routes (React Router fix)
-// const path = require("path");
-// app.use(express.static(path.join(__dirname, "client", "build")));
+app.get("/*", (req, res) => {
+  res.sendFile(path.resolve(__dirname, "client", "build", "index.html"));
+});
 
-// // ✅ Express v5 compatible catch-all route
-// app.get("/*", (req, res) => {
-//   res.sendFile(path.resolve(__dirname, "client", "build", "index.html"));
-// });
-
-
-
+// PORT
 const PORT = process.env.PORT || 5000;
 server.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
