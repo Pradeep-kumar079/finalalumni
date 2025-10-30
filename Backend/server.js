@@ -16,17 +16,16 @@ const app = express();
 
 // Middleware
 app.use(express.json());
-app.use(cors());
+app.use(cors({ origin: process.env.FRONTEND_URL }));
 app.use("/uploads", express.static("uploads"));
 
 // MongoDB Connection
 const MONGO_URI = process.env.MONGO_URI;
-console.log("🔍 Mongo URI:", MONGO_URI);
-
+console.log("🔍 Connecting to MongoDB...");
 mongoose
   .connect(MONGO_URI, { useNewUrlParser: true, useUnifiedTopology: true })
   .then(() => console.log("✅ MongoDB connected"))
-  .catch((err) => console.error("MongoDB error:", err));
+  .catch((err) => console.error("MongoDB connection error:", err));
 
 // ROUTES
 app.use("/api/user", require("./Routes/UserRoutes"));
@@ -42,7 +41,7 @@ app.use("/api/auth", require("./Routes/ForgotRoutes"));
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
-    origin: process.env.FRONTEND_URL || "*",
+    origin: process.env.FRONTEND_URL,
     methods: ["GET", "POST", "PUT", "DELETE"],
   },
 });
@@ -57,7 +56,6 @@ io.on("connection", (socket) => {
     if (!userId) return;
     onlineUsers.set(userId, socket.id);
     console.log(`🟢 ${userId} is online`);
-
     try {
       await UserModel.findByIdAndUpdate(userId, { isOnline: true });
       io.emit("userStatusUpdate", { userId, isOnline: true });
@@ -97,7 +95,6 @@ io.on("connection", (socket) => {
         break;
       }
     }
-
     if (disconnectedUserId) {
       try {
         await UserModel.findByIdAndUpdate(disconnectedUserId, { isOnline: false });
@@ -111,7 +108,6 @@ io.on("connection", (socket) => {
 
 // ✅ Serve React frontend for production
 app.use(express.static(path.join(__dirname, "client", "build")));
-
 app.get("/*", (req, res) => {
   res.sendFile(path.resolve(__dirname, "client", "build", "index.html"));
 });
