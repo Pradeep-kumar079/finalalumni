@@ -25,7 +25,7 @@ mongoose
   .then(() => console.log("✅ MongoDB connected"))
   .catch((err) => console.error("MongoDB connection error:", err));
 
-// ROUTES
+// API ROUTES
 app.use("/api/user", require("./Routes/UserRoutes"));
 app.use("/api/account", require("./Routes/AccountRoutes"));
 app.use("/api/student", require("./Routes/StudentRoutes"));
@@ -100,8 +100,8 @@ io.on("connection", (socket) => {
 const buildPath = path.join(__dirname, "client", "build");
 app.use(express.static(buildPath));
 
-// ✅ Catch-all route for React Router
-app.get("*", (req, res) => {
+// ✅ Catch-all route for React Router (Render-compatible)
+app.get("/*", (req, res) => {
   res.sendFile(path.join(buildPath, "index.html"));
 });
 
