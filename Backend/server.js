@@ -114,7 +114,7 @@ const buildPath = path.join(__dirname, "client", "build");
 app.use(express.static(buildPath));
 
 // Catch all non-API routes and return React index.html
-app.get("*", (req, res) => {
+app.get("/", (req, res) => {
   if (!req.path.startsWith("/api")) {
     res.sendFile(path.join(buildPath, "index.html"));
   }
