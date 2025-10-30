@@ -1,3 +1,4 @@
+// server.js
 const express = require("express");
 const http = require("http");
 const { Server } = require("socket.io");
@@ -16,6 +17,7 @@ app.use(express.json());
 
 const FRONTEND_URL = "https://incandescent-kitten-729b4c.netlify.app";
 
+// CORS setup
 app.use(
   cors({
     origin: FRONTEND_URL,
@@ -24,9 +26,10 @@ app.use(
   })
 );
 
+// Serve uploads
 app.use("/uploads", express.static("uploads"));
 
-// MongoDB
+// MongoDB connection
 mongoose
   .connect(process.env.MONGO_URI, { useNewUrlParser: true, useUnifiedTopology: true })
   .then(() => console.log("✅ MongoDB connected"))
@@ -34,9 +37,9 @@ mongoose
 
 // API Routes
 app.use("/api/user", require("./Routes/UserRoutes"));
-// ... other routes
+// add other routes here, e.g., app.use("/api/chat", require("./Routes/ChatRoutes"));
 
-// Socket.IO
+// Socket.IO setup
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
@@ -52,6 +55,7 @@ const onlineUsers = new Map();
 io.on("connection", (socket) => {
   console.log("⚡ User connected:", socket.id);
 
+  // User comes online
   socket.on("user-online", async (userId) => {
     if (!userId) return;
     onlineUsers.set(userId, socket.id);
@@ -59,13 +63,19 @@ io.on("connection", (socket) => {
     io.emit("userStatusUpdate", { userId, isOnline: true });
   });
 
+  // Sending a message
   socket.on("send-message", async ({ fromUserId, toUserId, message }) => {
-    const newChat = await ChatModel.create({ sender: fromUserId, receiver: toUserId, message });
+    const newChat = await ChatModel.create({
+      sender: fromUserId,
+      receiver: toUserId,
+      message,
+    });
     const receiverSocket = onlineUsers.get(toUserId);
     if (receiverSocket) io.to(receiverSocket).emit("receive-message", { chat: newChat });
     socket.emit("message-sent", { chat: newChat });
   });
 
+  // User disconnect
   socket.on("disconnect", async () => {
     for (let [userId, sockId] of onlineUsers.entries()) {
       if (sockId === socket.id) {
@@ -78,16 +88,19 @@ io.on("connection", (socket) => {
   });
 });
 
-// Serve React
+// Serve React frontend
 const buildPath = path.join(__dirname, "client", "build");
 app.use(express.static(buildPath));
 
-// ✅ FIXED catch-all route for React
-app.get("/*", (req, res) => {
-  // Only serve React app if not API request
+// ✅ Catch all non-API requests and serve React
+app.use((req, res, next) => {
   if (!req.path.startsWith("/api")) {
     res.sendFile(path.join(buildPath, "index.html"));
+  } else {
+    next();
   }
 });
 
-server.listen(process.env.PORT || 5000, () => console.log("🚀 Server running"));
+// Start server
+const PORT = process.env.PORT || 5000;
+server.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
