@@ -96,12 +96,15 @@ io.on("connection", (socket) => {
   });
 });
 
-app.use(express.static(path.join(__dirname, "client", "build")));
+// Serve React build
+const buildPath = path.join(__dirname, "client", "build");
+app.use(express.static(buildPath));
 
-// Catch-all route for React Router
-app.get("*", (req, res) => {
-  res.sendFile(path.join(__dirname, "client", "build", "index.html"));
+// ✅ Catch-all route for React Router
+app.get("/*", (req, res) => {
+  res.sendFile(path.join(buildPath, "index.html"));
 });
 
+// Start server
 const PORT = process.env.PORT || 5000;
 server.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
